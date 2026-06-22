@@ -1,0 +1,23 @@
+{
+  "wrap_guides": [120],
+  "lsp": {
+    "vscode-css-language-server": {
+      "settings": {
+        "css": {
+          "lint": {
+            "unknownAtRules": "ignore",
+          },
+        },
+      },
+    },
+    "vtsls": {
+      "settings": {
+        "typescript": {
+          "preferences": {
+            "importModuleSpecifier": "non-relative",
+          },
+        },
+      },
+    },
+  },
+}
