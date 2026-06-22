@@ -9,6 +9,7 @@ import InsightPanel from "@src/components/InsightPanel.vue";
 import DashboardHeader from "@src/components/DashboardHeader.vue";
 import MetricsBar from "@src/components/MetricsBar.vue";
 import DashboardFooter from "@src/components/DashboardFooter.vue";
+import WegZeitDiagram from "@src/components/WegZeitDiagram.vue";
 import { computed, ref } from "vue";
 
 const isLive = ref(true);
@@ -41,7 +42,7 @@ const currentValues = computed(() => ({
     <DashboardHeader :is-live="isLive" @toggle="toggleLive" />
 
     <div class="full-width dashboard-insight">
-      <InsightPanel :metrics="METRICS" :current-values="currentValues" />
+      <WegZeitDiagram />
     </div>
 
     <MetricsBar :metrics="METRICS" :current-values="currentValues" />
@@ -69,6 +70,10 @@ const currentValues = computed(() => ({
       <div class="chart-cell">
         <GaugeChart :value="phValue" :metric="METRICS[2]" />
       </div>
+    </div>
+
+    <div class="full-width dashboard-insight">
+      <InsightPanel :metrics="METRICS" :current-values="currentValues" />
     </div>
 
     <DashboardFooter />
