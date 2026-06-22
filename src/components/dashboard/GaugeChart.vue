@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watch, nextTick, computed, useTemplateRef } from "vue";
+import { onMounted, onUnmounted, watch, nextTick, computed, useTemplateRef } from "vue";
 import * as d3 from "d3";
 import type { MetricConfig } from "@src/types/processData";
 
@@ -141,11 +141,28 @@ watch(
   },
 );
 
+let resizeTimer: number;
+
+const handleResize = () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    if (!chartRef.value) return;
+    d3.select(chartRef.value).selectAll("*").remove();
+    initChart();
+    updateChart();
+  }, 200);
+};
+
 onMounted(() => {
   nextTick(() => {
     initChart();
     updateChart();
+    window.addEventListener("resize", handleResize);
   });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
 });
 </script>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, useTemplateRef } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick, useTemplateRef } from "vue";
 import * as d3 from "d3";
 
 interface ProcessEvent {
@@ -27,7 +27,7 @@ const generateEvent = (): ProcessEvent => {
   const types: ProcessEvent["type"][] = ["maintenance", "chemical", "measurement", "alarm"];
   const labels: Record<string, string[]> = {
     maintenance: ["Anode replacement", "Filter cleaning", "Bath agitation check", "Electrode inspection"],
-    chemical: ["pH adjustment", "Add brightener", "Add wetting agent", "Metal salt补充"],
+    chemical: ["pH adjustment", "Add brightener", "Add wetting agent", "Metal salt replenishment"],
     measurement: ["Thickness check", "Current density log", "Temperature recording", "pH measurement"],
     alarm: ["Temperature spike", "Current fluctuation", "pH deviation", "Thickness low"],
   };
@@ -143,14 +143,16 @@ const updateChart = () => {
   // MERGE
   const all = markersEnter.merge(markers);
 
-  all.transition().duration(300).attr("opacity", 1);
-
-  all.attr("transform", (d, i) => {
-    const x = xScale(d.time);
-    // Alternate above and below timeline
-    const offset = i % 2 === 0 ? -50 : 40;
-    return `translate(${x},${midY + offset})`;
-  });
+  all
+    .transition()
+    .duration(300)
+    .attr("opacity", 1)
+    .attr("transform", (d, i) => {
+      const x = xScale(d.time);
+      // Alternate above and below timeline
+      const offset = i % 2 === 0 ? -50 : 40;
+      return `translate(${x},${midY + offset})`;
+    });
 
   all
     .select("line")
@@ -197,12 +199,24 @@ const updateChart = () => {
 
 // Add new event periodically
 let eventInterval: number;
+let resizeTimer: number;
+
+const handleResize = () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    if (!chartRef.value) return;
+    d3.select(chartRef.value).selectAll("*").remove();
+    initChart();
+    updateChart();
+  }, 200);
+};
 
 onMounted(() => {
   initEvents();
   nextTick(() => {
     initChart();
     updateChart();
+    window.addEventListener("resize", handleResize);
   });
 
   // Add new event every 8-15 seconds
@@ -218,9 +232,9 @@ onMounted(() => {
   );
 });
 
-import { onUnmounted } from "vue";
 onUnmounted(() => {
   clearInterval(eventInterval);
+  window.removeEventListener("resize", handleResize);
 });
 
 watch(
@@ -228,7 +242,6 @@ watch(
   () => {
     nextTick(updateChart);
   },
-  { deep: true },
 );
 </script>
 
@@ -299,5 +312,16 @@ watch(
 .chart-container {
   width: 100%;
   height: 200px;
+}
+
+@media (max-width: 768px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .legend {
+    gap: 8px;
+  }
 }
 </style>

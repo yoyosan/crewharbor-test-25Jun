@@ -17,6 +17,15 @@ let animationId: number;
 let controls: OrbitControls;
 const disposables: { dispose: () => void }[] = [];
 
+const handleResize = () => {
+  if (!containerRef.value || !renderer || !camera) return;
+  const w = containerRef.value.clientWidth;
+  const h = containerRef.value.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+};
+
 const temperatureToColor = (temp: number) => {
   // 20°C = blue, 45°C = yellow, 60°C = red
   const ratio = Math.min(1, Math.max(0, (temp - 20) / 40));
@@ -138,9 +147,11 @@ watch(
 onMounted(() => {
   init();
   animate();
+  window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
   cancelAnimationFrame(animationId);
   controls?.dispose();
   for (const d of disposables) d.dispose();

@@ -22,7 +22,7 @@ defineProps<{
 <style scoped>
 .metrics-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -53,5 +53,11 @@ defineProps<{
   font-size: 11px;
   color: #6b7280;
   margin-top: 2px;
+}
+
+@media (max-width: 768px) {
+  .metric-value {
+    font-size: 22px;
+  }
 }
 </style>

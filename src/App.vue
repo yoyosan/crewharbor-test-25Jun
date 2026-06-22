@@ -1,87 +1,34 @@
 <script setup lang="ts">
-import { useProcessData } from "@src/composables/useProcessData";
-import { METRICS } from "@src/types/processData";
-import LineChart from "@src/components/LineChart.vue";
-import GaugeChart from "@src/components/GaugeChart.vue";
-import BarChart from "@src/components/BarChart.vue";
-import BathVisualization3D from "@src/components/BathVisualization3D.vue";
-import InsightPanel from "@src/components/InsightPanel.vue";
-import DashboardHeader from "@src/components/DashboardHeader.vue";
-import MetricsBar from "@src/components/MetricsBar.vue";
-import DashboardFooter from "@src/components/DashboardFooter.vue";
-import WegZeitDiagram from "@src/components/WegZeitDiagram.vue";
-import { computed, ref } from "vue";
+import DashboardHeader from "@src/components/dashboard/DashboardHeader.vue";
+import DashboardFooter from "@src/components/dashboard/DashboardFooter.vue";
+import { useLiveState } from "@src/composables/useLiveState";
 
-const isLive = ref(true);
-const { getMetricData, getCurrentValue, start, stop } = useProcessData();
-
-const toggleLive = () => {
-  isLive.value = !isLive.value;
-  isLive.value ? start() : stop();
-};
-
-const temperatureData = getMetricData("Bath Temperature");
-const currentDensityData = getMetricData("Current Density");
-const thicknessData = getMetricData("Plating Thickness");
-
-const currentDensityValue = getCurrentValue("Current Density");
-const phValue = getCurrentValue("pH Level");
-const temperatureValue = getCurrentValue("Bath Temperature");
-const thicknessValue = getCurrentValue("Plating Thickness");
-
-const currentValues = computed(() => ({
-  "Bath Temperature": temperatureValue.value,
-  "Current Density": currentDensityValue.value,
-  "pH Level": phValue.value,
-  "Plating Thickness": thicknessValue.value,
-}));
+const { isLive, toggleLive } = useLiveState();
 </script>
 
 <template>
-  <div class="dashboard">
+  <div class="app">
     <DashboardHeader :is-live="isLive" @toggle="toggleLive" />
 
-    <div class="full-width dashboard-insight">
-      <WegZeitDiagram />
-    </div>
+    <nav class="nav-bar">
+      <router-link to="/" class="nav-link">
+        Dashboard
+      </router-link>
+      <router-link to="/maintenance" class="nav-link">
+        Maintenance
+      </router-link>
+    </nav>
 
-    <MetricsBar :metrics="METRICS" :current-values="currentValues" />
-
-    <div class="charts-grid">
-      <div class="chart-cell main-chart">
-        <LineChart :data="temperatureData" :metric="METRICS[0]" />
-      </div>
-
-      <div class="chart-cell">
-        <BathVisualization3D :temperature="temperatureValue" />
-      </div>
-
-      <div class="chart-cell">
-        <LineChart :data="currentDensityData" :metric="METRICS[1]" />
-      </div>
-
-      <div class="chart-cell">
-        <BarChart :data="thicknessData" :metric="METRICS[3]" />
-      </div>
-
-      <div class="chart-cell">
-        <GaugeChart :value="currentDensityValue" :metric="METRICS[1]" />
-      </div>
-      <div class="chart-cell">
-        <GaugeChart :value="phValue" :metric="METRICS[2]" />
-      </div>
-    </div>
-
-    <div class="full-width dashboard-insight">
-      <InsightPanel :metrics="METRICS" :current-values="currentValues" />
-    </div>
+    <main class="main-content">
+      <router-view />
+    </main>
 
     <DashboardFooter />
   </div>
 </template>
 
 <style scoped>
-.dashboard {
+.app {
   min-height: 100vh;
   background: #111827;
   color: #e5e7eb;
@@ -89,33 +36,41 @@ const currentValues = computed(() => ({
   box-sizing: border-box;
 }
 
-.dashboard-insight {
+.nav-bar {
+  display: flex;
+  gap: 8px;
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid #374151;
 }
 
-.charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9ca3af;
+  transition: all 0.2s;
 }
 
-.chart-cell {
-  min-height: 300px;
+.nav-link:hover {
+  background: #1f2937;
+  color: #e5e7eb;
 }
 
-.main-chart {
-  grid-column: 1;
+.nav-link.router-link-exact-active {
+  background: #1f2937;
+  color: #3b82f6;
 }
 
-.full-width {
-  grid-column: 1 / -1;
+.main-content {
+  min-height: 60vh;
 }
 
-@media (max-width: 1024px) {
-  .charts-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .app {
+    padding: 16px;
   }
 }
 </style>

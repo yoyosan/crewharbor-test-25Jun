@@ -98,4 +98,15 @@ defineEmits<{
 .toggle-btn:hover {
   background: #4b5563;
 }
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .header-content h1 {
+    font-size: 20px;
+  }
+}
 </style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MetricConfig, ProcessPoint } from "@src/types/processData";
 import * as d3 from "d3";
-import { nextTick, onMounted, useTemplateRef, watch } from "vue";
+import { nextTick, onMounted, onUnmounted, useTemplateRef, watch } from "vue";
 
 const props = defineProps<{
   data: ProcessPoint[];
@@ -168,11 +168,28 @@ watch(
   },
 );
 
+let resizeTimer: number;
+
+const handleResize = () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    if (!chartRef.value) return;
+    d3.select(chartRef.value).selectAll("*").remove();
+    initChart();
+    updateChart();
+  }, 200);
+};
+
 onMounted(() => {
   nextTick(() => {
     initChart();
     updateChart();
+    window.addEventListener("resize", handleResize);
   });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
 });
 </script>
 
@@ -216,5 +233,6 @@ onMounted(() => {
 .chart-container {
   width: 100%;
   height: 250px;
+  overflow: hidden;
 }
 </style>
