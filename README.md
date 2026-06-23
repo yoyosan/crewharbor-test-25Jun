@@ -2,6 +2,8 @@
 
 Real-time dashboard for monitoring electroplating bath parameters — built with Vue 3, D3.js, Three.js, and TypeScript.
 
+<img width="800" height="1000" alt="CleanShot 2026-06-23 at 12 22 18@2x" src="https://github.com/user-attachments/assets/57e07c6e-5cbb-401c-a0ac-d73bb45a7510" />
+
 **Live demo:** [electroplating-monitor.vercel.app](https://electroplating-monitor.vercel.app/)
 
 ## What It Does
