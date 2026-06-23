@@ -112,14 +112,22 @@ const updateChart = () => {
   const needleAngle = scale(props.value);
 
   // Update value arc
-  const valueArc = d3
-    .arc<unknown, unknown>()
-    .innerRadius(radius - 15)
-    .outerRadius(radius)
-    .startAngle(-Math.PI / 2)
-    .endAngle(scale(props.value));
+  const valueArc = d3.arc<unknown, unknown>().innerRadius(radius - 15).outerRadius(radius).startAngle(-Math.PI / 2);
 
-  valueArcPath.transition().duration(300).attr("d", valueArc(null)).attr("fill", statusColor.value);
+  const node = valueArcPath.node() as (SVGPathElement & { __currentAngle?: number }) | null;
+  const previousAngle = node?.__currentAngle ?? -Math.PI / 2;
+  const targetAngle = scale(props.value);
+  const interpolateAngle = d3.interpolate(previousAngle, targetAngle);
+
+  valueArcPath
+    .transition()
+    .duration(300)
+    .attrTween("d", () => (t: number) => {
+      const angle = interpolateAngle(t);
+      if (node) node.__currentAngle = angle;
+      return valueArc.endAngle(angle)(null) ?? "";
+    })
+    .attr("fill", statusColor.value);
 
   // Update needle
   needle

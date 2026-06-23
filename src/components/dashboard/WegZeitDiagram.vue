@@ -238,7 +238,7 @@ onUnmounted(() => {
 });
 
 watch(
-  () => events.value,
+  () => events.value.length,
   () => {
     nextTick(updateChart);
   },

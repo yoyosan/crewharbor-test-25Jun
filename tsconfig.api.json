@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
+    "paths": {
+      "@api/*": ["./api/*"],
+    },
+  },
+  "include": ["api/**/*.ts"],
+}

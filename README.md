@@ -8,25 +8,25 @@ Real-time dashboard for monitoring electroplating bath parameters — built with
 
 Simulates industrial process data and visualizes it across multiple chart types:
 
-| Component | Description |
-|-----------|-------------|
-| **LineChart** | Real-time data stream with animated line, gradient fill, warning threshold |
-| **GaugeChart** | Semicircular dial with colored zones and needle indicator |
-| **BarChart** | Historical data aggregated into 10-second time buckets with error bars |
-| **Bath3D** | Interactive 3D plating bath with liquid, electrodes, and visible waterline |
-| **WegZeitDiagram** | Process timeline showing maintenance, chemical, measurement, and alarm events |
-| **InsightPanel** | AI-generated process recommendations based on current values |
-| **MetricsBar** | Live current values for all 4 monitored parameters |
-| **Maintenance** | Bath maintenance module with task scheduling and tracking |
+| Component          | Description                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| **LineChart**      | Real-time data stream with animated line, gradient fill, warning threshold                                    |
+| **GaugeChart**     | Semicircular dial with colored zones and needle indicator                                                     |
+| **BarChart**       | Historical data aggregated into 10-second time buckets with error bars                                        |
+| **Bath3D**         | Interactive 3D plating bath with liquid, electrodes, and visible waterline                                    |
+| **WegZeitDiagram** | Process timeline showing maintenance, chemical, measurement, and alarm events                                 |
+| **InsightPanel**   | AI-generated process recommendations based on current values                                                  |
+| **MetricsBar**     | Live current values for all 4 monitored parameters                                                            |
+| **Maintenance**    | Bath maintenance module with task scheduling and tracking, backed by a Postgres database via a serverless API |
 
 ### Monitored Parameters
 
-| Metric | Unit | Warning Threshold |
-|--------|------|-------------------|
-| Bath Temperature | °C | 50 |
-| Current Density | A/dm² | 7 |
-| pH Level | pH | 10 |
-| Plating Thickness | μm | 20 |
+| Metric            | Unit  | Warning Threshold |
+| ----------------- | ----- | ----------------- |
+| Bath Temperature  | °C    | 50                |
+| Current Density   | A/dm² | 7                 |
+| pH Level          | pH    | 10                |
+| Plating Thickness | μm    | 20                |
 
 ## Tech Stack
 
@@ -37,12 +37,23 @@ Simulates industrial process data and visualizes it across multiple chart types:
 - **Three.js** — Interactive 3D bath visualization with OrbitControls
 - **Vite** — Fast dev server and optimized builds
 - **Bun** — Package manager and runtime
-- **Vercel** — Deployment and hosting
+- **Vercel** — Deployment, hosting, and serverless functions
 - **GitHub Actions** — CI/CD pipeline
+- **Drizzle ORM** — Typed schema and queries for the maintenance tasks database
+- **Vercel Postgres (Neon)** — Persistent storage for maintenance tasks
 
 ## Project Structure
 
 ```
+api/
+├── db/
+│   ├── client.ts                  # Drizzle client (Vercel Postgres pool)
+│   └── schema/
+│       ├── index.ts               # Re-exports all tables
+│       └── maintenanceTasks.ts    # maintenance_tasks table + status enum
+├── tasks/
+│   ├── index.ts                   # GET (list) / POST (create)
+│   └── [id].ts                    # PATCH (update status) / DELETE
 src/
 ├── components/
 │   ├── dashboard/
@@ -81,8 +92,18 @@ src/
 # Install dependencies
 bun install
 
-# Start dev server
+# Pull database env vars from the linked Vercel project (one-time)
+bunx vercel link
+bunx vercel env pull .env.local
+
+# Push the Drizzle schema to the database (one-time / after schema changes)
+bun run db:push
+
+# Start dev server (frontend only, no /api routes)
 bun dev
+
+# Start dev server with /api routes (use this when testing the maintenance API)
+bunx vercel dev
 
 # Build for production
 bun run build
@@ -90,6 +111,21 @@ bun run build
 # Preview production build
 bun run preview
 ```
+
+## API
+
+The maintenance module is backed by a serverless API (`api/tasks/*`) and a Postgres database (Vercel Postgres / Neon), queried via Drizzle ORM. All endpoints accept/return JSON.
+
+| Method   | Path             | Body                                         | Description                                                    |
+| -------- | ---------------- | -------------------------------------------- | -------------------------------------------------------------- |
+| `GET`    | `/api/tasks`     | —                                            | List all maintenance tasks                                     |
+| `POST`   | `/api/tasks`     | `{ type, description, technician, dueDate }` | Create a task (status defaults to `pending`)                   |
+| `PATCH`  | `/api/tasks/:id` | `{ status }`                                 | Update a task's status (`pending` \| `completed` \| `overdue`) |
+| `DELETE` | `/api/tasks/:id` | —                                            | Delete a task                                                  |
+
+Schema (`maintenance_tasks` table): `id`, `date`, `type`, `description`, `technician`, `status` (Postgres enum), `dueDate`.
+
+All error responses return `{ error: string }` with status `400` (validation), `404` (not found), `405` (wrong method), or `500` (server error).
 
 ## Architecture
 
@@ -135,45 +171,45 @@ The plating bath is built from multiple Three.js primitives:
 - **Platform** — base cylinder underneath
 
 Interaction:
+
 - **Drag** — rotate the bath (OrbitControls)
 - **Scroll** — zoom in/out
 - **Temperature-based color** — liquid shifts blue → yellow → red as temperature rises
 
 ## Key D3 Concepts
 
-| Concept | Usage |
-|---------|-------|
-| `scaleTime` | Maps timestamps to X axis positions |
-| `scaleLinear` | Maps value ranges to Y axis positions |
-| `scaleBand` | Maps categories to evenly-spaced bar positions |
-| `d3.line()` | Generates SVG path from data points |
-| `d3.area()` | Generates filled area under line |
-| `d3.arc()` | Generates arc paths for gauge |
-| `d3.join()` | D3 v7 enter/update/exit pattern for bars |
-| `curveMonotoneX` | Smooths lines between points |
-| `d3.axisBottom/Left` | Renders axis with ticks and labels |
+| Concept              | Usage                                          |
+| -------------------- | ---------------------------------------------- |
+| `scaleTime`          | Maps timestamps to X axis positions            |
+| `scaleLinear`        | Maps value ranges to Y axis positions          |
+| `scaleBand`          | Maps categories to evenly-spaced bar positions |
+| `d3.line()`          | Generates SVG path from data points            |
+| `d3.area()`          | Generates filled area under line               |
+| `d3.arc()`           | Generates arc paths for gauge                  |
+| `d3.join()`          | D3 v7 enter/update/exit pattern for bars       |
+| `curveMonotoneX`     | Smooths lines between points                   |
+| `d3.axisBottom/Left` | Renders axis with ticks and labels             |
 
 ## Key Three.js Concepts
 
-| Concept | Usage |
-|---------|-------|
-| `PerspectiveCamera` | FOV, aspect ratio, near/far clipping planes |
-| `MeshStandardMaterial` | Color, transparency, metalness for bath materials |
-| `OrbitControls` | Drag-to-rotate and scroll-to-zoom interaction |
-| `requestAnimationFrame` | Render loop for smooth animation |
-| Temperature-to-color mapping | Linear interpolation across blue → yellow → red |
+| Concept                      | Usage                                             |
+| ---------------------------- | ------------------------------------------------- |
+| `PerspectiveCamera`          | FOV, aspect ratio, near/far clipping planes       |
+| `MeshStandardMaterial`       | Color, transparency, metalness for bath materials |
+| `OrbitControls`              | Drag-to-rotate and scroll-to-zoom interaction     |
+| `requestAnimationFrame`      | Render loop for smooth animation                  |
+| Temperature-to-color mapping | Linear interpolation across blue → yellow → red   |
 
 ## What I Learned
 
 - **D3 is imperative, Vue is declarative** — bridging them requires init/update separation, watch + nextTick + container ref
 - **Scales are the core of D3** — once you understand data → pixel mapping, everything follows
 - **Three.js is straightforward** — Scene, Camera, Renderer + OrbitControls for interaction
-- **Composables keep data logic clean** — separating simulation from rendering makes both testable
-- **Vue Router adds structure** — even 2 routes forces proper component organization
+- **D3 transitions need `attrTween` for paths with structural flags** — animating an SVG arc's `d` attribute via plain `.attr()` lets D3 fall back to naive string interpolation, which can produce invalid values for flags that must stay integers (like an arc's sweep flag)
 
 ## Next Steps
 
 - WebSocket integration for real-time sensor data
 - Alert notification system with sound
-- Historical data persistence with SQL database
+- Persist process metric history (currently only maintenance tasks are persisted)
 - Docker containerization

@@ -1,21 +1,31 @@
 <script setup lang="ts">
-import type { MaintenanceTask } from '@src/types/maintenance'
+import type { MaintenanceTask } from "@src/types/maintenance";
 
-defineProps<{ task: MaintenanceTask }>()
+const props = defineProps<{ task: MaintenanceTask; isPending: boolean }>();
 
-defineEmits<{
-  complete: [id: number]
-  delete: [id: number]
-}>()
+const emit = defineEmits<{
+  complete: [id: number];
+  delete: [id: number];
+}>();
 
 const statusColor = (status: string) => {
   switch (status) {
-    case 'completed': return '#10b981'
-    case 'pending': return '#f59e0b'
-    case 'overdue': return '#ef4444'
-    default: return '#6b7280'
+    case "completed":
+      return "#10b981";
+    case "pending":
+      return "#f59e0b";
+    case "overdue":
+      return "#ef4444";
+    default:
+      return "#6b7280";
   }
-}
+};
+
+const confirmDelete = () => {
+  if (window.confirm(`Delete "${props.task.description}"?`)) {
+    emit("delete", props.task.id);
+  }
+};
 </script>
 
 <template>
@@ -33,13 +43,23 @@ const statusColor = (status: string) => {
       </div>
     </div>
     <div class="task-actions">
-      <span class="status-badge" :style="{ color: statusColor(task.status), background: statusColor(task.status) + '15' }">
+      <span
+        class="status-badge"
+        :style="{ color: statusColor(task.status), background: statusColor(task.status) + '15' }"
+      >
         {{ task.status }}
       </span>
-      <button v-if="task.status !== 'completed'" class="action-btn complete" @click="$emit('complete', task.id)">
-        Complete
+      <button
+        v-if="task.status !== 'completed'"
+        class="action-btn complete"
+        @click="$emit('complete', task.id)"
+        :disabled="isPending"
+      >
+        {{ isPending ? "…" : "Complete" }}
       </button>
-      <button class="action-btn delete" @click="$emit('delete', task.id)">Delete</button>
+      <button class="action-btn delete" @click="confirmDelete" :disabled="isPending">
+        {{ isPending ? "…" : "Delete" }}
+      </button>
     </div>
   </div>
 </template>
@@ -131,5 +151,10 @@ const statusColor = (status: string) => {
 
 .action-btn.delete:hover {
   background: rgba(239, 68, 68, 0.1);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

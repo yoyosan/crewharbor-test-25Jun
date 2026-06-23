@@ -1,29 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref } from "vue";
+
+defineProps<{ isSubmitting: boolean }>();
 
 const emit = defineEmits<{
-  add: [task: { type: string; description: string; technician: string; dueDate: string }]
-}>()
+  add: [task: { type: string; description: string; technician: string; dueDate: string }];
+}>();
 
-const taskTypes = ['Chemical', 'Mechanical', 'Filter', 'Electrical', 'Cleaning', 'Inspection']
+const taskTypes = ["Chemical", "Mechanical", "Filter", "Electrical", "Cleaning", "Inspection"];
 
 const form = ref({
-  type: 'Chemical',
-  description: '',
-  technician: '',
-  dueDate: '',
-})
+  type: "Chemical",
+  description: "",
+  technician: "",
+  dueDate: "",
+});
+const validationError = ref<string | null>(null);
 
 const submit = () => {
-  if (!form.value.description || !form.value.technician || !form.value.dueDate) return
-  emit('add', { ...form.value })
-  form.value = { type: 'Chemical', description: '', technician: '', dueDate: '' }
-}
+  if (!form.value.description || !form.value.technician || !form.value.dueDate) {
+    validationError.value = "Please fill in description, technician, and due date.";
+    return;
+  }
+
+  validationError.value = null;
+  emit("add", { ...form.value });
+  form.value = { type: "Chemical", description: "", technician: "", dueDate: "" };
+};
 </script>
 
 <template>
   <div class="task-form">
     <h3>New Maintenance Task</h3>
+
+    <p v-if="validationError" class="validation-error">{{ validationError }}</p>
+
     <div class="form-grid">
       <div class="form-group">
         <label>Type</label>
@@ -44,7 +55,7 @@ const submit = () => {
         <input v-model="form.dueDate" type="date" />
       </div>
     </div>
-    <button class="submit-btn" @click="submit">Create Task</button>
+    <button class="submit-btn" :disabled="isSubmitting" @click="submit">Create Task</button>
   </div>
 </template>
 
@@ -99,5 +110,20 @@ const submit = () => {
 
 .submit-btn:hover {
   background: #059669;
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.validation-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 16px;
 }
 </style>

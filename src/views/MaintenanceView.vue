@@ -1,45 +1,98 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { MaintenanceTask } from '@src/types/maintenance'
-import StatsBar from '@src/components/maintenance/StatsBar.vue'
-import TaskForm from '@src/components/maintenance/TaskForm.vue'
-import TaskCard from '@src/components/maintenance/TaskCard.vue'
+import { ref, computed, onMounted } from "vue";
+import type { MaintenanceTask } from "@src/types/maintenance";
+import StatsBar from "@src/components/maintenance/StatsBar.vue";
+import TaskForm from "@src/components/maintenance/TaskForm.vue";
+import TaskCard from "@src/components/maintenance/TaskCard.vue";
 
-const tasks = ref<MaintenanceTask[]>([
-  { id: 1, date: '2025-06-20', type: 'Chemical', description: 'pH level check and adjustment', technician: 'M. Schmidt', status: 'completed', dueDate: '2025-06-20' },
-  { id: 2, date: '2025-06-21', type: 'Mechanical', description: 'Anode inspection and rotation', technician: 'K. Weber', status: 'completed', dueDate: '2025-06-21' },
-  { id: 3, date: '2025-06-22', type: 'Filter', description: 'Carbon filter replacement', technician: 'A. Mueller', status: 'pending', dueDate: '2025-06-23' },
-  { id: 4, date: '2025-06-25', type: 'Chemical', description: 'Brightener concentration test', technician: 'M. Schmidt', status: 'pending', dueDate: '2025-06-25' },
-  { id: 5, date: '2025-06-28', type: 'Electrical', description: 'Rectifier calibration', technician: 'K. Weber', status: 'overdue', dueDate: '2025-06-20' },
-])
+const tasks = ref<MaintenanceTask[]>([]);
+const showForm = ref(false);
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+const isSubmitting = ref(false);
+const pendingIds = ref<Set<number>>(new Set());
 
-const showForm = ref(false)
+const parseError = async (res: Response) => {
+  const body = await res.json().catch(() => null);
+  return body?.error ?? `Request failed (${res.status})`;
+};
+
+const fetchTasks = async () => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    const res = await fetch("/api/tasks");
+    if (!res.ok) throw new Error(await parseError(res));
+    tasks.value = await res.json();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Failed to load tasks";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+onMounted(fetchTasks);
 
 const stats = computed(() => ({
   total: tasks.value.length,
-  completed: tasks.value.filter(t => t.status === 'completed').length,
-  pending: tasks.value.filter(t => t.status === 'pending').length,
-  overdue: tasks.value.filter(t => t.status === 'overdue').length,
-}))
+  completed: tasks.value.filter((t) => t.status === "completed").length,
+  pending: tasks.value.filter((t) => t.status === "pending").length,
+  overdue: tasks.value.filter((t) => t.status === "overdue").length,
+}));
 
-const addTask = (task: { type: string; description: string; technician: string; dueDate: string }) => {
-  tasks.value.unshift({
-    id: Date.now(),
-    date: new Date().toISOString().split('T')[0],
-    ...task,
-    status: 'pending',
-  })
-  showForm.value = false
-}
+const addTask = async (task: { type: string; description: string; technician: string; dueDate: string }) => {
+  error.value = null;
+  isSubmitting.value = true;
+  try {
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(task),
+    });
+    if (!res.ok) throw new Error(await parseError(res));
+    const created = await res.json();
+    tasks.value.unshift(created);
+    showForm.value = false;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Failed to create task";
+  } finally {
+    isSubmitting.value = false;
+  }
+};
 
-const completeTask = (id: number) => {
-  const task = tasks.value.find(t => t.id === id)
-  if (task) task.status = 'completed'
-}
+const completeTask = async (id: number) => {
+  error.value = null;
+  pendingIds.value.add(id);
+  try {
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "completed" }),
+    });
+    if (!res.ok) throw new Error(await parseError(res));
+    const updated = await res.json();
+    const task = tasks.value.find((t) => t.id === id);
+    if (task) task.status = updated.status;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Failed to complete task";
+  } finally {
+    pendingIds.value.delete(id);
+  }
+};
 
-const deleteTask = (id: number) => {
-  tasks.value = tasks.value.filter(t => t.id !== id)
-}
+const deleteTask = async (id: number) => {
+  error.value = null;
+  pendingIds.value.add(id);
+  try {
+    const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) throw new Error(await parseError(res));
+    tasks.value = tasks.value.filter((t) => t.id !== id);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Failed to delete task";
+  } finally {
+    pendingIds.value.delete(id);
+  }
+};
 </script>
 
 <template>
@@ -50,23 +103,30 @@ const deleteTask = (id: number) => {
         <p class="subtitle">Schedule and track maintenance tasks for electroplating baths</p>
       </div>
       <button class="add-btn" @click="showForm = !showForm">
-        {{ showForm ? 'Cancel' : '+ Add Task' }}
+        {{ showForm ? "Cancel" : "+ Add Task" }}
       </button>
     </div>
 
-    <StatsBar v-bind="stats" />
+    <p v-if="error" class="error-banner">{{ error }}</p>
 
-    <TaskForm v-if="showForm" @add="addTask" />
-
-    <div class="task-list">
-      <TaskCard
-        v-for="task in tasks"
-        :key="task.id"
-        :task="task"
-        @complete="completeTask"
-        @delete="deleteTask"
-      />
+    <div v-if="isLoading" class="spinner-wrap">
+      <span class="spinner"></span>
     </div>
+
+    <template v-else>
+      <StatsBar v-bind="stats" />
+      <TaskForm v-if="showForm" :is-submitting="isSubmitting" @add="addTask" />
+      <div class="task-list">
+        <TaskCard
+          v-for="task in tasks"
+          :key="task.id"
+          :task="task"
+          @complete="completeTask"
+          @delete="deleteTask"
+          :is-pending="pendingIds.has(task.id)"
+        />
+      </div>
+    </template>
   </div>
 </template>
 
@@ -110,5 +170,36 @@ const deleteTask = (id: number) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.error-banner {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.spinner-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #374151;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
