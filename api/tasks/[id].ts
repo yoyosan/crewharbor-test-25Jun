@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { eq } from "drizzle-orm";
-import { db } from "@api/db/client";
-import { maintenanceTasks, taskStatusEnum } from "@api/db/schema";
+import { db } from "../db/client.js";
+import { maintenanceTasks, taskStatusEnum } from "../db/schema/index.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const id = Number(req.query.id);
