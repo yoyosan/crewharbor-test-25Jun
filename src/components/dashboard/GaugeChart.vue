@@ -33,17 +33,39 @@ let valueArcPath: d3.Selection<SVGPathElement, unknown, null, undefined>;
 let needle: d3.Selection<SVGLineElement, unknown, null, undefined>;
 let valueText: d3.Selection<SVGTextElement, unknown, null, undefined>;
 
+/**
+ * Maps the metric's value range (min → max) to the semicircle's angle range.
+ * -π/2 (left) = metric minimum, π/2 (right) = metric maximum.
+ * Used by both initChart (to position the warning arc) and updateChart
+ * (to position the needle and value arc based on the current value).
+ */
 const scale = d3
   .scaleLinear()
   .domain([props.metric.thresholds.min, props.metric.thresholds.max])
   .range([-Math.PI / 2, Math.PI / 2]);
 
+/**
+ * One-time build of the SVG structure for a semicircular gauge.
+ *
+ * 1. Guard — bail if the container ref isn't mounted yet.
+ * 2. Append an <svg> and a root <g> centered horizontally and
+ *    positioned near the bottom of the container so the semicircle
+ *    opens upward.
+ * 3. Background arc — full semicircle in dark gray representing the
+ *    entire possible range.
+ * 4. Warning arc — semicircle segment from the warning threshold to
+ *    the maximum, tinted red at 30% opacity.
+ * 5. Value arc — empty path that fills from -π/2 up to the current
+ *    value, colored dynamically by statusColor (updated by updateChart).
+ * 6. Needle — line from center outward, repositioned each update.
+ * 7. Center circle — small white dot at the pivot point (static).
+ * 8. Value text — large number showing the current value (updated).
+ * 9. Unit text — small label beneath the value (static).
+ */
 const initChart = () => {
   if (!chartRef.value) {
     return;
   }
-
-  d3.select(chartRef.value).selectAll("*").remove();
 
   svg = d3
     .select(chartRef.value)
@@ -103,6 +125,20 @@ const initChart = () => {
     .text(props.metric.unit);
 };
 
+/**
+ * Smoothly animates the gauge to reflect the current value.
+ * Uses D3 transitions with attrTween for frame-by-frame interpolation.
+ *
+ * 1. Value arc — interpolates the sweep angle from the previous value
+ *    to the new one over 300ms. Uses attrTween("d") so the arc path
+ *    is rebuilt each frame (plain .attr() can't interpolate arc paths).
+ *    Stores the current angle on the DOM node as __currentAngle for
+ *    the next update cycle.
+ * 2. Needle — transitions the endpoint (x2, y2) to the new angle
+ *    using cos/sin, keeping the pivot at (0,0).
+ * 3. Value text — immediately updates the displayed number (no
+ *    transition needed for text).
+ */
 const updateChart = () => {
   if (!svg) {
     return;
@@ -112,7 +148,11 @@ const updateChart = () => {
   const needleAngle = scale(props.value);
 
   // Update value arc
-  const valueArc = d3.arc<unknown, unknown>().innerRadius(radius - 15).outerRadius(radius).startAngle(-Math.PI / 2);
+  const valueArc = d3
+    .arc<unknown, unknown>()
+    .innerRadius(radius - 15)
+    .outerRadius(radius)
+    .startAngle(-Math.PI / 2);
 
   const node = valueArcPath.node() as (SVGPathElement & { __currentAngle?: number }) | null;
   const previousAngle = node?.__currentAngle ?? -Math.PI / 2;

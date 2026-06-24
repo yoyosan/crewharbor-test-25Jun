@@ -62,10 +62,27 @@ let xAxisGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 let width = 0;
 let height = 0;
 
+/**
+ * One-time setup of the SVG structure for the Weg-Zeit timeline.
+ *
+ * 1. Measure the container via chartRef to get the usable width (minus margins).
+ * 2. Append an <svg> and a root <g> translated by the margins so all
+ *    child elements can use (0,0) as their top-left corner.
+ * 3. Create a horizontal line at midY as the central timeline axis.
+ * 4. Create an x-axis group positioned at the bottom (height) to hold
+ *    the time-formatted ticks rendered later by updateChart.
+ * 5. Override D3's default axis colors to match the dark theme.
+ *
+ * The actual event markers are created and managed by updateChart()
+ * using the D3 enter/update/exit pattern — initChart only builds the
+ * static scaffolding that markers and axes draw on top of.
+ */
 const initChart = () => {
-  if (!chartRef.value) return;
+  if (!chartRef.value) {
+    return;
+  }
 
-  const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+  const margin = { top: 20, right: 20, bottom: 40, left: 20 };
   width = chartRef.value.clientWidth - margin.left - margin.right;
   height = 200 - margin.top - margin.bottom;
 
@@ -75,7 +92,7 @@ const initChart = () => {
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+    .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
   xScale = d3.scaleTime().range([0, width]);
 
@@ -89,18 +106,37 @@ const initChart = () => {
     .attr("stroke", "#374151")
     .attr("stroke-width", 2);
 
-  xAxisGroup = svg.append("g").attr("transform", `translate(0,${height})`);
+  xAxisGroup = svg.append("g").attr("transform", `translate(0, ${height})`);
 
   svg.selectAll(".domain").attr("stroke", "#374151");
   svg.selectAll(".tick line").attr("stroke", "#374151");
 };
 
+/**
+ * Redraws the Weg-Zeit timeline diagram using the D3 enter/update/exit pattern.
+ *
+ * 1. Guard — bail if SVG or data isn't ready.
+ * 2. Compute time domain with 30s padding so earliest/latest events don't
+ *    sit flush against the edges.
+ * 3. Bind events to .marker groups using ISO time as the key function
+ *    so D3 can match DOM nodes to data across calls.
+ * 4. EXIT  — fade out removed markers.
+ * 5. ENTER — scaffold new marker groups (dashed connector line, circle,
+ *    icon text, label text) and append them to the SVG.
+ * 6. MERGE — update position, styles, and label text for all markers.
+ *    Even-indexed markers sit above the centerline, odd-indexed below.
+ *    Labels are skipped when the previous marker is too close (< 80 px)
+ *    to avoid overlap. Long labels are split across two <tspan> lines.
+ * 7. X axis — render bottom axis with 5 tick marks formatted as HH:MM:SS.
+ */
 const updateChart = () => {
-  if (!svg || !events.value.length) return;
+  if (!svg || !events.value.length) {
+    return;
+  }
 
   const timeExtent = d3.extent(events.value, (d) => d.time) as [Date, Date];
   // Add padding to time range
-  const padding = 30000; // 30 seconds
+  const padding = 30_000; // 30 seconds
   xScale.domain([new Date(timeExtent[0].getTime() - padding), new Date(timeExtent[1].getTime() + padding)]);
 
   const midY = height / 2;
@@ -176,7 +212,9 @@ const updateChart = () => {
       if (i > 0) {
         const prevX = xScale(events.value[i - 1].time);
         const curX = xScale(d.time);
-        if (Math.abs(curX - prevX) < 80) return;
+        if (Math.abs(curX - prevX) < 80) {
+          return;
+        }
       }
       const words = d.label.split(" ");
       if (words.length > 1) {
@@ -197,14 +235,17 @@ const updateChart = () => {
   xAxisGroup.selectAll("text").attr("fill", "#9ca3af").attr("font-size", "10px");
 };
 
-// Add new event periodically
+// Add a new event periodically
 let eventInterval: number;
 let resizeTimer: number;
 
 const handleResize = () => {
   clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    if (!chartRef.value) return;
+    if (!chartRef.value) {
+      return;
+    }
+
     d3.select(chartRef.value).selectAll("*").remove();
     initChart();
     updateChart();

@@ -17,15 +17,6 @@ let animationId: number;
 let controls: OrbitControls;
 const disposables: { dispose: () => void }[] = [];
 
-const handleResize = () => {
-  if (!containerRef.value || !renderer || !camera) return;
-  const w = containerRef.value.clientWidth;
-  const h = containerRef.value.clientHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-};
-
 const temperatureToColor = (temp: number) => {
   // 20°C = blue, 45°C = yellow, 60°C = red
   const ratio = Math.min(1, Math.max(0, (temp - 20) / 40));
@@ -35,6 +26,30 @@ const temperatureToColor = (temp: number) => {
   return new THREE.Color(r, g, b);
 };
 
+/**
+ * One-time build of the Three.js scene representing an electroplating bath.
+ *
+ * 1. Guard — bail if the container ref isn't mounted yet.
+ * 2. Scene — dark background (#1f2937) to match the app theme.
+ * 3. Camera — PerspectiveCamera at 60° FOV positioned above-left
+ *    looking slightly downward at the bath center.
+ * 4. Renderer — WebGL with antialiasing, sized to fill the container,
+ *    pixel-ratio-aware for crisp rendering on HiDPI screens.
+ * 5. OrbitControls — allows drag-to-rotate and scroll-to-zoom with
+ *    damping enabled for smooth inertia.
+ * 6. Lighting — ambient fill (60%) + directional key light (80%)
+ *    positioned up-right for natural shading on the metallic surfaces.
+ * 7. Bath shell — open-top cylinder (DoubleSide, 50% opacity) so the
+ *    liquid inside is visible through the walls.
+ * 8. Bath bottom — flat circle lying on the XZ plane at y ≈ 0.
+ * 9. Liquid — slightly narrower cylinder colored via temperatureToColor()
+ *    at the current temperature, semi-transparent (70% opacity).
+ * 10. Electrodes — two thin metallic cylinders on either side of the bath,
+ *     representing the anode/cathode pair.
+ * 11. Platform — wider flat cylinder beneath the bath as a stand.
+ * 12. All geometries and materials are tracked in `disposables` so they
+ *     can be properly freed on component unmount to avoid WebGL leaks.
+ */
 const init = () => {
   if (!containerRef.value) {
     return;
@@ -128,6 +143,18 @@ const init = () => {
   );
 };
 
+/**
+ * Continuous render loop for the Three.js scene.
+ *
+ * 1. Schedules itself on the next animation frame (~60 fps).
+ * 2. Updates OrbitControls so drag/zoom responds to user input.
+ * 3. Slowly rotates the bath around the Y axis (0.003 rad/frame ≈
+ *    a full rotation every ~35 seconds) to give the scene life.
+ * 4. Renders the scene from the camera's perspective into the canvas.
+ *
+ * The loop is cancelled on component unmount via cancelAnimationFrame
+ * to prevent orphaned frames and memory leaks.
+ */
 const animate = () => {
   animationId = requestAnimationFrame(animate);
   controls.update();
@@ -144,6 +171,18 @@ watch(
   },
 );
 
+const handleResize = () => {
+  if (!containerRef.value || !renderer || !camera) {
+    return;
+  }
+
+  const w = containerRef.value.clientWidth;
+  const h = containerRef.value.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+};
+
 onMounted(() => {
   init();
   animate();
@@ -154,7 +193,10 @@ onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
   cancelAnimationFrame(animationId);
   controls?.dispose();
-  for (const d of disposables) d.dispose();
+
+  for (const d of disposables) {
+    d.dispose();
+  }
   renderer?.dispose();
   disposables.length = 0;
 });

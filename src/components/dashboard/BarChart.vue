@@ -46,6 +46,21 @@ let yAxisGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 let width = 0;
 let height = 0;
 
+/**
+ * One-time build of the SVG structure for the aggregated bar chart.
+ *
+ * 1. Guard — bail if the container ref or buckets aren't available.
+ * 2. Measure the container width and compute a fixed 250px height,
+ *    then subtract margins to get the usable draw area.
+ * 3. Append an <svg> and a root <g> translated by the margins.
+ * 4. Create a scaleBand for the X axis (evenly spaced bars with
+ *    30% padding) and a scaleLinear for Y (0 to metric max).
+ * 5. Draw a horizontal dashed warning threshold line at the metric's
+ *    warning value — bars exceeding this threshold are recolored red.
+ * 6. Create empty axis groups at the bottom (x) and left (y) to be
+ *    rendered by updateChart on each cycle.
+ * 7. Override D3's default axis colors to match the dark theme.
+ */
 const initChart = () => {
   if (!chartRef.value || !buckets.value.length) {
     return;
@@ -54,8 +69,6 @@ const initChart = () => {
   const margin = { top: 20, right: 20, bottom: 40, left: 60 };
   width = chartRef.value.clientWidth - margin.left - margin.right;
   height = 250 - margin.top - margin.bottom;
-
-  d3.select(chartRef.value).selectAll("*").remove();
 
   svg = d3
     .select(chartRef.value)
@@ -89,6 +102,21 @@ const initChart = () => {
   svg.selectAll(".tick line").attr("stroke", "#374151");
 };
 
+/**
+ * Redraws the bar chart to reflect the latest aggregated buckets.
+ * Uses D3's .join() shorthand for enter/update/exit handling.
+ *
+ * 1. Re-bind the xScale domain to the current bucket labels.
+ * 2. Bars — new bars animate up from the baseline; removed bars
+ *    shrink down and are removed. Each bar's color switches to red
+ *    when its average exceeds the warning threshold.
+ * 3. Error bars — thin vertical lines drawn from each bucket's min
+ *    to max value, centered on the bar, showing the value spread
+ *    within each 10-second window.
+ * 4. X axis — bucket start times formatted as HH:MM:SS, rotated
+ *    -45° to avoid overlap on narrow layouts.
+ * 5. Y axis — linear scale with 5 tick marks.
+ */
 const updateChart = () => {
   if (!svg || !buckets.value.length) {
     return;
@@ -172,7 +200,9 @@ let resizeTimer: number;
 const handleResize = () => {
   clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    if (!chartRef.value) return;
+    if (!chartRef.value) {
+      return;
+    }
     d3.select(chartRef.value).selectAll("*").remove();
     initChart();
     updateChart();

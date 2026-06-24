@@ -22,6 +22,25 @@ let yAxisGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 let width = 0;
 let height = 0;
 
+/**
+ * One-time build of the SVG structure for a real-time D3 line chart.
+ *
+ * 1. Guard — bail if the container ref or data isn't available yet.
+ * 2. Measure the container width and compute a fixed 250px height,
+ *    then subtract margins to get the usable draw area.
+ * 3. Append an <svg> and a root <g> translated by the margins so all
+ *    child elements can use (0,0) as their top-left corner.
+ * 4. Create x (time) and y (linear) scales seeded with the initial
+ *    data extent — these are reassigned domains each update cycle.
+ * 5. Draw a horizontal dashed warning threshold line with a label,
+ *    positioned via yScale at the metric's warning value.
+ * 6. Define a <linearGradient> (top-to-bottom, metric color fading
+ *    from 30% to 5% opacity) used to fill the area under the line.
+ * 7. Create empty path placeholders (linePath, areaPath), a trailing
+ *    dot, its numeric label, and the x/y axis groups — all updated
+ *    later by updateChart without recreating DOM nodes.
+ * 8. Override D3's default axis colors to match the dark theme.
+ */
 const initChart = () => {
   if (!chartRef.value || !props.data.length) {
     return;
@@ -113,6 +132,20 @@ const initChart = () => {
   svg.selectAll(".tick line").attr("stroke", "#374151");
 };
 
+/**
+ * Incrementally redraws the line chart to reflect the latest data.
+ * Called on every tick (1 s) via watch → nextTick. Only mutates
+ * attributes on existing DOM elements — no full rebuild.
+ *
+ * 1. Re-extend the xScale domain to span the newest time range.
+ * 2. Rebuild the <path> `d` attribute for both the line (d3.line
+ *    with curveMonotoneX for smooth curves) and the filled area
+ *    underneath it.
+ * 3. Reposition the trailing dot and its numeric label to the last
+ *    data point so the viewer always sees the current value.
+ * 4. Re-render both axes with updated tick marks and labels
+ *    (x-axis shows HH:MM:SS, y-axis shows metric range).
+ */
 const updateChart = () => {
   if (!svg || !props.data.length) {
     return;
@@ -173,7 +206,10 @@ let resizeTimer: number;
 const handleResize = () => {
   clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    if (!chartRef.value) return;
+    if (!chartRef.value) {
+      return;
+    }
+
     d3.select(chartRef.value).selectAll("*").remove();
     initChart();
     updateChart();

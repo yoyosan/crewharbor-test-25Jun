@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import type { MaintenanceTaskForm } from "@src/types/maintenance";
 import { ref } from "vue";
 
 defineProps<{ isSubmitting: boolean }>();
 
 const emit = defineEmits<{
-  add: [task: { type: string; description: string; technician: string; dueDate: string }];
+  add: [task: MaintenanceTaskForm];
 }>();
 
 const taskTypes = ["Chemical", "Mechanical", "Filter", "Electrical", "Cleaning", "Inspection"];

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import type { MaintenanceTask } from "@src/types/maintenance";
+import type { MaintenanceTask, MaintenanceTaskForm } from "@src/types/maintenance";
 import StatsBar from "@src/components/maintenance/StatsBar.vue";
 import TaskForm from "@src/components/maintenance/TaskForm.vue";
 import TaskCard from "@src/components/maintenance/TaskCard.vue";
@@ -22,7 +22,10 @@ const fetchTasks = async () => {
   error.value = null;
   try {
     const res = await fetch("/api/tasks");
-    if (!res.ok) throw new Error(await parseError(res));
+    if (!res.ok) {
+      throw new Error(await parseError(res));
+    }
+
     tasks.value = await res.json();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to load tasks";
@@ -40,7 +43,7 @@ const stats = computed(() => ({
   overdue: tasks.value.filter((t) => t.status === "overdue").length,
 }));
 
-const addTask = async (task: { type: string; description: string; technician: string; dueDate: string }) => {
+const addTask = async (task: MaintenanceTaskForm) => {
   error.value = null;
   isSubmitting.value = true;
   try {
@@ -49,7 +52,10 @@ const addTask = async (task: { type: string; description: string; technician: st
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task),
     });
-    if (!res.ok) throw new Error(await parseError(res));
+    if (!res.ok) {
+      throw new Error(await parseError(res));
+    }
+
     const created = await res.json();
     tasks.value.unshift(created);
     showForm.value = false;
@@ -69,10 +75,15 @@ const completeTask = async (id: number) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "completed" }),
     });
-    if (!res.ok) throw new Error(await parseError(res));
+    if (!res.ok) {
+      throw new Error(await parseError(res));
+    }
+
     const updated = await res.json();
     const task = tasks.value.find((t) => t.id === id);
-    if (task) task.status = updated.status;
+    if (task) {
+      task.status = updated.status;
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to complete task";
   } finally {
@@ -85,7 +96,9 @@ const deleteTask = async (id: number) => {
   pendingIds.value.add(id);
   try {
     const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    if (!res.ok && res.status !== 204) throw new Error(await parseError(res));
+    if (!res.ok && res.status !== 204) {
+      throw new Error(await parseError(res));
+    }
     tasks.value = tasks.value.filter((t) => t.id !== id);
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to delete task";
